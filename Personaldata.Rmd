@@ -1,0 +1,113 @@
+Practical Machine Learning Assignment 
+========================================================
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+
+## Data 
+The training data for this project is available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data is available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+## Purpose
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. We may use any of the other variables to predict with. This report describes how we built our model, how we used cross validation, what we think the expected out of sample error will be, and why we made the choices we did. We will also use our prediction model to predict 20 different test cases and validate those in Part II of the assignment. 
+
+
+## Loading the data
+```{r}
+library(caret)
+library(randomForest)
+
+#Read the training and test data set
+personaldata <- read.csv("pml-training.csv")
+personaldatatesting <- read.csv("pml-testing.csv")
+```
+
+
+## Data Pre-Processing
+A basic step that was taken is to show which of the 159 variables 
+countained a large number of NA values. 67 variables contained almost
+all NA values. These variables where excluded from the model.
+
+```{r }
+navariables <- character()
+
+for (Var in names(personaldata)) {
+    missing <- sum(is.na(personaldata[,Var]))
+    if (missing > 0) {
+        print(c(Var,missing))
+        navariables <- c(navariables,Var)
+    }
+}
+
+#Number of variables with almost all NA's
+length(navariables)
+
+#Drop columns that countain mostly NA's
+personaldata <- personaldata[,!(names(personaldata) %in% navariables)]
+
+```
+
+
+The second thing that was done was to remove zero covariate variables meaning variables
+that have little variability and therefore would not contribute to our prediction. 
+
+We also removed 5 variables that were part of the tombstone of each obeservations. 
+
+
+```{r }
+nsv <- nearZeroVar(personaldata ,saveMetrics=TRUE)
+nsv
+
+#Drop columns that are Near Zero Var
+nzvcolumns<- subset(nsv, nsv$nzv,select=-c(freqRatio,percentUnique,zeroVar,nzv)) 
+personaldata <- personaldata[,!(names(personaldata) %in% row.names(nzvcolumns)) ]
+
+#Removing columns that are contain tombstone information
+personaldata<- subset(personaldata,select=-c(X,user_name,raw_timestamp_part_1,user_name,raw_timestamp_part_2,cvtd_timestamp,num_window )) 
+```
+
+
+## Modeling
+We are now left with 53 variables in our model from our original 159. 
+We have decided all these remaining variables into our model. 
+We have decided to use the Random Forest Machine learning Algorithm with cross validation with a K fold = 3.
+
+```{r }
+set.seed(2133)
+modfit <- train(classe ~., data=personaldata, method="rf",trControl = trainControl(method = "cv",number=3))
+
+```
+
+
+### In-Sample Error
+```{r }
+#This provides an overview of our trained model which has an overall Accuracy of > 98%.
+# Ths is based on having this simulation many times.
+
+modfit
+
+```
+
+### Out-of-Sample Error 
+We would expect the Out-of-Sample error rate to be higher. The reason for using kfold cross-validation is to get a good idea of what that Out-of-Sample error rate would most likely be. It would somewhat be unsual if our accuracy was below 85%. We would expect something closer to 90%. 
+However testing on only 20 cases can lead to unexpected results. 
+
+
+### Results of our Prediction
+```{r }
+modpred <- predict(modfit, personaldatatesting)
+#This is what we will be submitting for Part II of this assignment.
+modpred
+
+```
+
+
+
+
+
+
